@@ -1,8 +1,12 @@
 
-LED bar (DC7G3HWA)   | PE2, PE4, PE5, PE6, PE3, PF8, PF7, PF9, PG1, PG0 (Pins Occupied by Task)
+# DIY Alexa – Gruppe 3
 
-PD8, PD9 (ST-LINK virtual COM, 115200 baud) PB0, PB7, PB14, PC13 (Pins Occupied by Board)
+**Pins occupied by task:**
+- LED bar (DC7G3HWA): PE2, PE4, PE5, PE6, PE3, PF8, PF7, PF9, PG1, PG0
 
-Added Files/Functions :
+**Pins occupied by board:**
+- Terminal (USART3, ST-LINK virtual COM, 115200 baud): PD8, PD9
+- On-board LEDs / button: PB0, PB7, PB14, PC13
 
-| leds.h / leds.cpp | ledsInit(), setLeds(n), ledCount(), volumeToLeds(volume, max)| 
+**Added files / functions:**
+- `leds.h / leds.cpp`: `ledsInit()`, `setLeds(n)`, `ledCount()`, `volumeToLeds(volume, max)`
