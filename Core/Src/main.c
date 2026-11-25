@@ -37,7 +37,7 @@
 /* USER CODE BEGIN PD */
 
 #define LED_TEST 0      // 1 = run the LED bar test 0 = test off
-#define MIC_PRINT_ALL 0   // 1 = alle 16000 Werte ausgeben (fuer das Wav-file Creator Script, dauert ca. 15 s)
+#define MIC_PRINT_ALL 1   // 1 = alle 16000 Werte ausgeben (fuer das Wav-file Creator Script, dauert ca. 15 s)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -118,6 +118,21 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   ledsInit();
+  printf("Hallo vom Mikrofon-Branch!\r\n");
+
+  micStart();
+    printf("1: micStart ok\r\n");
+
+    HAL_Delay(3000);
+    printf("2: Delay ok\r\n");
+
+    printf("Aufnahme beginnt\r\n");micStart();
+    printf("1: micStart ok\r\n");
+
+    HAL_Delay(3000);
+    printf("2: Delay ok\r\n");
+
+    printf("Aufnahme beginnt\r\n");
 
   /* --- Mikrofon-Test (Aufgabe 1.5) --- */
     micStart();
@@ -134,14 +149,21 @@ int main(void)
       printf("%ld\r\n", (long)recording[i]);
     }
 
-  #if MIC_PRINT_ALL
+ /*  #if MIC_PRINT_ALL
     for (uint32_t i = 0; i < MIC_SAMPLE_RATE; i++)
     {
       printf("%ld\r\n", (long)recording[i]);
     }
-  #endif
+  #endif */
 
-
+#if MIC_PRINT_ALL
+  printf("WAV_START\r\n");
+  for (uint32_t i = 0; i < MIC_SAMPLE_RATE; i++)
+  {
+    printf("%ld\r\n", (long)recording[i]);
+  }
+  printf("WAV_END\r\n");
+#endif
 
   /* USER CODE END 2 */
 
