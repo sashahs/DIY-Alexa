@@ -22,7 +22,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include "leds.h"
+#include "mic.h"
 
 /* USER CODE END Includes */
 
@@ -35,7 +37,7 @@
 /* USER CODE BEGIN PD */
 
 #define LED_TEST 0      // 1 = run the LED bar test 0 = test off
-
+#define MIC_PRINT_ALL 0   // 1 = alle 16000 Werte ausgeben (fuer das Wav-file Creator Script, dauert ca. 15 s)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -59,7 +61,7 @@ UART_HandleTypeDef huart3;
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
-
+static int32_t recording[MIC_SAMPLE_RATE];   // 1 s Audio = 16000 Samples = 64 KB
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -116,6 +118,30 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   ledsInit();
+
+  /* --- Mikrofon-Test (Aufgabe 1.5) --- */
+    micStart();
+    HAL_Delay(3000);   // erste Werte des Mikrofons sind unbrauchbar -> 3 s warten
+
+    printf("Aufnahme beginnt\r\n");
+    uint32_t dauer = micRecord(recording, MIC_SAMPLE_RATE);   // 1 s = 16000 Samples
+    printf("Aufnahme fertig: %lu Samples in %lu ms, Overruns: %lu\r\n",
+           (unsigned long)MIC_SAMPLE_RATE, (unsigned long)dauer, (unsigned long)micOverruns());
+
+    printf("Erste 10 Samples:\r\n");
+    for (int i = 0; i < 10; i++)
+    {
+      printf("%ld\r\n", (long)recording[i]);
+    }
+
+  #if MIC_PRINT_ALL
+    for (uint32_t i = 0; i < MIC_SAMPLE_RATE; i++)
+    {
+      printf("%ld\r\n", (long)recording[i]);
+    }
+  #endif
+
+
 
   /* USER CODE END 2 */
 
@@ -435,6 +461,24 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/* printf ueber USART3 (ST-Link virtueller COM-Port) */
+int __io_putchar(int ch)
+{
+  uint8_t c[1];
+  c[0] = ch & 0x00FF;
+  HAL_UART_Transmit(&huart3, &*c, 1, 10);
+  return ch;
+}
+
+int _write(int file, char *ptr, int len)
+{
+  for (int i = 0; i < len; i++)
+  {
+    __io_putchar(*ptr++);
+  }
+  return len;
+}
 
 /* USER CODE END 4 */
 
