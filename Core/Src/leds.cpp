@@ -16,16 +16,19 @@ namespace {
   };
 
   const LedPin LED_PINS[] = {
-    { GPIOE, GPIO_PIN_2 },   // A  – bar graph pin 1
-    { GPIOE, GPIO_PIN_4 },   // B  – pin 2
-    { GPIOE, GPIO_PIN_5 },   // C  – pin 3
-    { GPIOE, GPIO_PIN_6 },   // D  – pin 4
-    { GPIOE, GPIO_PIN_3 },   // E  – pin 5
-    { GPIOF, GPIO_PIN_8 },   // F  – pin 6
-    { GPIOF, GPIO_PIN_7 },   // G  – pin 7
-    { GPIOF, GPIO_PIN_9 },   // H  – pin 8 (red)
-    { GPIOG, GPIO_PIN_1 },   // I  – pin 9 (red)
-    { GPIOG, GPIO_PIN_0 },   // J  – pin 10 (red)
+
+		    { GPIOG, GPIO_PIN_0 },  // LED 1
+		    { GPIOG, GPIO_PIN_1 },  // LED 2
+		    { GPIOF, GPIO_PIN_9 },  // LED 3
+		    { GPIOF, GPIO_PIN_7 },  // LED 4
+		    { GPIOF, GPIO_PIN_8 },  // LED 5
+		    { GPIOE, GPIO_PIN_3 },  // LED 6
+		    { GPIOE, GPIO_PIN_6 },  // LED 7
+		    { GPIOE, GPIO_PIN_5 },  // LED 8
+		    { GPIOE, GPIO_PIN_4 },  // LED 9
+		    { GPIOE, GPIO_PIN_2 }   // LED 10
+
+
   };
 
   constexpr uint8_t NUM_LEDS = sizeof(LED_PINS) / sizeof(LED_PINS[0]);

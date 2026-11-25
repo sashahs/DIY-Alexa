@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include "leds.h"
 #include "mic.h"
+#include "timing.h"
+#include "rf.h"
 
 /* USER CODE END Includes */
 
@@ -35,9 +37,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-#define LED_TEST 0      // 1 = run the LED bar test 0 = test off
-#define MIC_PRINT_ALL 1   // 1 = alle 16000 Werte ausgeben (fuer das Wav-file Creator Script, dauert ca. 15 s)
+/* Test-Schalter: 1 = an, 0 = aus */
+#define LED_TEST      0   // A1.2: LED-Balken hoch/runter zaehlen
+#define MIC_TEST      0   // A1.5: 1 s Mikrofonaufnahme beim Start
+#define MIC_PRINT_ALL 0   // A1.5: alle 16000 Werte ausgeben (Wav-Script), nur zusammen mit MIC_TEST 1
+#define RF_TEST       1   // A1.4: Steckdose alle 10 s an/aus, mit Zeitmessung im Terminal
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,13 +59,16 @@ ETH_HandleTypeDef heth;
 
 I2S_HandleTypeDef hi2s2;
 DMA_HandleTypeDef hdma_spi2_rx;
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart3;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
+#if MIC_TEST
 static int32_t recording[MIC_SAMPLE_RATE];   // 1 s Audio = 16000 Samples = 64 KB
+#endif
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,6 +79,7 @@ static void MX_ETH_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_I2S2_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -115,46 +123,28 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_I2S2_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
   ledsInit();
-  printf("Hallo vom Mikrofon-Branch!\r\n");
+  HAL_TIM_Base_Start(&htim2);   // Timer fuer delay350Microseconds (A1.3)
+  printf("DIY Alexa gestartet\r\n");
 
-  micStart();
-    printf("1: micStart ok\r\n");
-
-    HAL_Delay(3000);
-    printf("2: Delay ok\r\n");
-
-    printf("Aufnahme beginnt\r\n");micStart();
-    printf("1: micStart ok\r\n");
-
-    HAL_Delay(3000);
-    printf("2: Delay ok\r\n");
-
-    printf("Aufnahme beginnt\r\n");
-
+#if MIC_TEST
   /* --- Mikrofon-Test (Aufgabe 1.5) --- */
-    micStart();
-    HAL_Delay(3000);   // erste Werte des Mikrofons sind unbrauchbar -> 3 s warten
+  micStart();
+  HAL_Delay(3000);   // erste Werte des Mikrofons sind unbrauchbar -> 3 s warten
 
-    printf("Aufnahme beginnt\r\n");
-    uint32_t dauer = micRecord(recording, MIC_SAMPLE_RATE);   // 1 s = 16000 Samples
-    printf("Aufnahme fertig: %lu Samples in %lu ms, Overruns: %lu\r\n",
-           (unsigned long)MIC_SAMPLE_RATE, (unsigned long)dauer, (unsigned long)micOverruns());
+  printf("Aufnahme beginnt\r\n");
+  uint32_t dauer = micRecord(recording, MIC_SAMPLE_RATE);   // 1 s = 16000 Samples
+  printf("Aufnahme fertig: %lu Samples in %lu ms, Overruns: %lu\r\n",
+         (unsigned long)MIC_SAMPLE_RATE, (unsigned long)dauer, (unsigned long)micOverruns());
 
-    printf("Erste 10 Samples:\r\n");
-    for (int i = 0; i < 10; i++)
-    {
-      printf("%ld\r\n", (long)recording[i]);
-    }
-
- /*  #if MIC_PRINT_ALL
-    for (uint32_t i = 0; i < MIC_SAMPLE_RATE; i++)
-    {
-      printf("%ld\r\n", (long)recording[i]);
-    }
-  #endif */
+  printf("Erste 10 Samples:\r\n");
+  for (int i = 0; i < 10; i++)
+  {
+    printf("%ld\r\n", (long)recording[i]);
+  }
 
 #if MIC_PRINT_ALL
   printf("WAV_START\r\n");
@@ -164,6 +154,7 @@ int main(void)
   }
   printf("WAV_END\r\n");
 #endif
+#endif /* MIC_TEST */
 
   /* USER CODE END 2 */
 
@@ -171,16 +162,44 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  for (uint8_t n = 0; n <= ledCount(); n++)
-	      {
-	        setLeds(n);
-	        HAL_Delay(200);
-	      }
-	      for (int n = ledCount(); n >= 0; n--)
-	      {
-	        setLeds((uint8_t)n);
-	        HAL_Delay(200);
-	      }
+#if LED_TEST
+    /* A1.2 Test: LED-Balken hoch und runter */
+    for (uint8_t n = 0; n <= ledCount(); n++)
+    {
+      setLeds(n);
+      HAL_Delay(200);
+    }
+    for (int n = ledCount(); n >= 0; n--)
+    {
+      setLeds((uint8_t)n);
+      HAL_Delay(200);
+    }
+#endif
+
+    /*
+    // A1.3 Test
+    setLeds(10);
+    delay350Microseconds(1000);
+    setLeds(0);
+    delay350Microseconds(1000);
+    */
+
+#if RF_TEST
+    /* A1.4 Test: Steckdose an, 10 s warten, aus, 10 s warten.
+       Erwartete Dauer pro sendSequence: 10 x (12 x 8 + 32) x 350 us = 448 ms */
+    uint32_t t = HAL_GetTick();
+    sendSequence(0b111111000010); // ON
+    printf("RF: ON  gesendet (%lu ms)\r\n", (unsigned long)(HAL_GetTick() - t));
+    HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+    HAL_Delay(10000);
+
+    t = HAL_GetTick();
+    sendSequence(0b111111000001); // OFF
+    printf("RF: OFF gesendet (%lu ms)\r\n", (unsigned long)(HAL_GetTick() - t));
+    HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+    HAL_Delay(10000);
+#endif
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -317,6 +336,51 @@ static void MX_I2S2_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 83;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -433,6 +497,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(RF_SEND_GPIO_Port, RF_SEND_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOG, GPIO_PIN_0|GPIO_PIN_1|USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PE2 PE3 PE4 PE5
@@ -450,8 +517,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USER_Btn_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PF7 PF8 PF9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9;
+  /*Configure GPIO pins : PF7 PF8 PF9 RF_SEND_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9|RF_SEND_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
